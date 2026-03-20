@@ -272,6 +272,7 @@ body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-ser
 .pv-sum-lbl{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--green);text-transform:uppercase;margin-bottom:5px;}
 .pv-sum-text{font-size:13px;color:var(--text2);line-height:1.6;font-style:italic;}
 .pv-no-sum{font-size:12px;color:var(--text3);font-style:italic;}
+@media(max-width:600px){.pv-day [style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important;}}
 .pv-imgs{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;}
 .pv-imgs img{width:68px;height:50px;object-fit:cover;border-radius:3px;border:1px solid var(--border);cursor:pointer;}
 .pv-imgs img:hover{opacity:.8;}
@@ -572,22 +573,63 @@ async function renderParentView(childPlayer){
     const pct=total>0?Math.round(done/total*100):0;
     const col=COLORS[i];
     const sum=sums[i]||'';
+    const note=ns[i]||'';
     const dayImgs=imgs[i]||[];
     const isC=pct===100;
     const linksForDay=ls[i]||[];
+    const hasContent=sum||note||linksForDay.length||dayImgs.length;
+    // Checklist items with done/undone state
+    const checklistH=d.checks.map((c,ci)=>{
+      const isDone=!!(cs[i]&&cs[i][ci]);
+      return `<div style="display:flex;align-items:flex-start;gap:9px;padding:5px 0;border-bottom:1px solid var(--border);">
+        <span style="flex-shrink:0;width:16px;height:16px;border-radius:3px;background:${isDone?'var(--green)':'transparent'};border:1.5px solid ${isDone?'var(--green)':'var(--border2)'};display:flex;align-items:center;justify-content:center;margin-top:1px;">
+          ${isDone?'<span style="color:#090909;font-size:9px;font-weight:700;">✓</span>':''}
+        </span>
+        <span style="font-size:12px;color:${isDone?'var(--text3)':'var(--text2)'};text-decoration:${isDone?'line-through':''};line-height:1.5;">${c}</span>
+      </div>`;
+    }).join('');
     html+=`<div class="pv-day ${isC?'pvc':''}">
       <div class="pv-day-hdr">
         <div class="pv-dnum" style="color:${col}">${d.num}</div>
         <div><div class="pv-dtitle">${d.title}</div><div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;">${d.sub}</div></div>
-        <div class="pv-dpct" style="color:${col}">${done}/${total} tasks · ${pct}%</div>
+        <div class="pv-dpct" style="color:${col}">${done}/${total} · ${pct}%</div>
       </div>
       <div class="pv-dbar"><div class="pv-dbar-fill" style="background:${col};width:${pct}%"></div></div>
-      <div class="pv-summary-box">
-        <div class="pv-sum-lbl">Day summary</div>
-        ${sum?`<div class="pv-sum-text">"${sum}"</div>`:`<div class="pv-no-sum">No summary written yet</div>`}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+
+        <div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:7px;">✓ Tasks</div>
+          ${checklistH}
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          ${sum?`<div style="padding:10px 13px;background:var(--gd);border:1px solid rgba(46,204,113,.15);border-radius:5px;">
+            <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--green);text-transform:uppercase;margin-bottom:5px;">✍️ Day summary</div>
+            <div style="font-size:13px;color:var(--text2);line-height:1.6;font-style:italic;">"${sum}"</div>
+          </div>`:`<div style="padding:10px 13px;background:var(--card2);border:1px solid var(--border);border-radius:5px;">
+            <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:5px;">✍️ Day summary</div>
+            <div style="font-size:12px;color:var(--text3);font-style:italic;">Not written yet</div>
+          </div>`}
+          ${note?`<div style="padding:10px 13px;background:var(--card2);border:1px solid var(--border);border-radius:5px;">
+            <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--blue);text-transform:uppercase;margin-bottom:5px;">📝 Notes</div>
+            <div style="font-size:13px;color:var(--text2);line-height:1.6;white-space:pre-wrap;">${note.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+          </div>`:''}
+          ${linksForDay.length?`<div style="padding:10px 13px;background:var(--card2);border:1px solid var(--border);border-radius:5px;">
+            <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--orange);text-transform:uppercase;margin-bottom:7px;">🔗 Links saved</div>
+            <div style="display:flex;flex-direction:column;gap:5px;">${linksForDay.map(l=>{
+              let host=l;try{host=new URL(l).hostname;}catch(e){}
+              return `<a href="${l}" target="_blank" rel="noopener" style="font-size:12px;color:var(--blue);font-family:'Space Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;">${host}</a>`;
+            }).join('')}</div>
+          </div>`:''}
+        </div>
       </div>
-      ${linksForDay.length?`<div style="margin-top:9px;display:flex;flex-wrap:wrap;gap:6px;">${linksForDay.map(l=>`<a href="${l}" target="_blank" rel="noopener" style="font-size:11px;color:var(--blue);font-family:'Space Mono',monospace;">${new URL(l).hostname}</a>`).join('')}</div>`:''}
-      ${dayImgs.length?`<div class="pv-imgs">${dayImgs.map((src,pi)=>`<img src="${src}" alt="Day ${i+1} upload" onclick="openLightbox('${src}','Day ${i+1} — ${d.title}')">`).join('')}</div>`:''}
+
+      ${dayImgs.length?`<div style="margin-top:12px;">
+        <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase;margin-bottom:8px;">📸 Uploaded (${dayImgs.length})</div>
+        <div class="pv-imgs">${dayImgs.map(src=>`<img src="${src}" alt="upload" onclick="openLightbox('${src}','Day ${i+1} — ${d.title}')" style="cursor:pointer;">`).join('')}</div>
+      </div>`:''}
+
     </div>`;
   });
   html+='</div>';
