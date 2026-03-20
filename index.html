@@ -868,6 +868,13 @@ const DAYS=[
 
 // ── INIT ──
 (async()=>{
+  // ?parent in URL jumps straight to parent login — bookmark as huxley-gamemaker.vercel.app?parent
+  if(new URLSearchParams(window.location.search).has('parent')){
+    const result=await tryAutoLogin();
+    if(result==='player'){await loadAndRender();}
+    else if(result!=='parent'){showParentLogin();}
+    return;
+  }
   const result=await tryAutoLogin();
   if(result==='player'){await loadAndRender();}
   else if(result!=='parent'){/* onboarding already showing */}
