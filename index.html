@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Huxley's Game Maker</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --black:#090909;--white:#f0ebe0;--surface:#131313;--card:#1a1a1a;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --yellow:#FFD000;--yd:rgba(255,208,0,0.11);
+  --green:#2ECC71;--gd:rgba(46,204,113,0.1);
+  --blue:#4EC9F5;--bd:rgba(78,201,245,0.1);
+  --purple:#C084FC;--pd:rgba(192,132,252,0.1);
+  --red:#FF6B6B;--od:rgba(255,159,67,0.1);--orange:#FF9F43;
+  --mono:'Space Mono',monospace;--sans:'IBM Plex Sans',sans-serif;--dis:'Bebas Neue',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--black);color:var(--white);font-family:var(--sans);overflow-x:hidden;font-size:15px;line-height:1.6;}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.03) 3px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:9999;}
+
+/* ONBOARDING OVERLAY */
+#onboarding{position:fixed;inset:0;background:var(--black);z-index:500;display:flex;align-items:center;justify-content:center;padding:24px;}
+.ob-box{max-width:520px;width:100%;text-align:center;}
+.ob-tag{font-family:var(--mono);font-size:10px;letter-spacing:5px;color:var(--yellow);opacity:.7;text-transform:uppercase;margin-bottom:18px;}
+.ob-title{font-family:var(--dis);font-size:clamp(52px,11vw,96px);line-height:.9;margin-bottom:24px;}
+.ob-title span{color:var(--yellow);display:block;}
+.ob-desc{font-size:15px;line-height:1.75;color:rgba(240,235,224,.6);margin-bottom:32px;font-weight:300;}
+.ob-desc b{color:var(--green);font-weight:500;}
+.ob-label{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:rgba(240,235,224,.35);text-transform:uppercase;margin-bottom:10px;text-align:left;}
+.ob-input{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border2);border-radius:6px;padding:14px 16px;color:var(--white);font-family:var(--dis);font-size:28px;letter-spacing:2px;outline:none;text-align:center;transition:border-color .2s;margin-bottom:20px;}
+.ob-input:focus{border-color:var(--yellow);}
+.ob-input::placeholder{color:rgba(240,235,224,.18);font-size:22px;}
+.avatar-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:28px;}
+.av-btn{width:52px;height:52px;border-radius:50%;border:2px solid var(--border);background:var(--card);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.av-btn:hover,.av-btn.sel{border-color:var(--yellow);background:var(--yd);}
+.ob-go{width:100%;padding:16px;background:var(--yellow);border:none;border-radius:6px;font-family:var(--dis);font-size:22px;letter-spacing:2px;color:var(--black);cursor:pointer;transition:opacity .2s;}
+.ob-go:hover{opacity:.88;}
+.ob-go:disabled{opacity:.35;cursor:default;}
+.ob-err{font-family:var(--mono);font-size:11px;color:var(--red);margin-top:10px;min-height:18px;}
+
+/* HOW TO USE */
+.how-section{padding:48px 24px 40px;border-bottom:1px solid var(--border);max-width:920px;margin:0 auto;}
+.how-tag{font-family:var(--mono);font-size:10px;letter-spacing:4px;color:rgba(240,235,224,.3);text-transform:uppercase;margin-bottom:16px;}
+.how-title{font-family:var(--dis);font-size:34px;margin-bottom:24px;}
+.how-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;}
+.how-card{padding:18px 16px;border:1px solid var(--border);border-radius:6px;background:var(--card);}
+.how-num{font-family:var(--dis);font-size:36px;color:var(--yellow);opacity:.4;line-height:1;margin-bottom:8px;}
+.how-card h4{font-size:13px;font-weight:500;margin-bottom:5px;}
+.how-card p{font-size:12px;color:rgba(240,235,224,.4);line-height:1.5;}
+
+/* HERO */
+.hero{padding:48px 24px 40px;border-bottom:1px solid var(--border2);position:relative;overflow:hidden;}
+.hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--yellow),transparent);}
+.hero-inner{max-width:920px;margin:0 auto;display:flex;align-items:flex-start;gap:28px;flex-wrap:wrap;}
+.hero-avatar-block{display:flex;flex-direction:column;align-items:center;gap:8px;flex-shrink:0;}
+.hero-av{width:80px;height:80px;border-radius:50%;background:var(--yd);border:2px solid rgba(255,208,0,.3);display:flex;align-items:center;justify-content:center;font-size:36px;}
+.hero-name{font-family:var(--dis);font-size:14px;letter-spacing:2px;color:var(--yellow);}
+.hero-text{flex:1;min-width:200px;}
+.hero-pre{font-family:var(--mono);font-size:9px;letter-spacing:5px;color:rgba(240,235,224,.3);text-transform:uppercase;margin-bottom:8px;}
+.hero-h1{font-family:var(--dis);font-size:clamp(42px,8vw,80px);line-height:.9;margin-bottom:12px;}
+.hero-h1 span{color:var(--yellow);}
+.hero-sub{font-size:14px;color:rgba(240,235,224,.5);font-weight:300;max-width:520px;line-height:1.6;}
+.hero-sub b{color:var(--green);font-weight:500;}
+.hero-progress{margin-top:20px;}
+.hp-row{display:flex;justify-content:space-between;margin-bottom:7px;}
+.hp-label{font-family:var(--mono);font-size:9px;letter-spacing:3px;color:rgba(240,235,224,.3);text-transform:uppercase;}
+.hp-count{font-family:var(--mono);font-size:12px;color:var(--yellow);}
+.hp-bar{height:7px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;max-width:480px;}
+.hp-fill{height:100%;background:linear-gradient(90deg,var(--yellow),var(--green));border-radius:4px;transition:width .5s ease;}
+.saving-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);opacity:0;transition:opacity .3s;vertical-align:middle;margin-left:8px;}
+.saving-dot.show{opacity:1;}
+
+/* DAYS */
+.days{max-width:920px;margin:0 auto;padding:36px 16px 80px;}
+.day{border:1px solid var(--border);border-radius:8px;margin-bottom:24px;overflow:hidden;transition:border-color .3s;}
+.day.complete{border-color:rgba(46,204,113,.25);}
+.day-header{display:flex;align-items:center;gap:18px;padding:20px 24px;cursor:pointer;user-select:none;}
+.day-num{font-family:var(--dis);font-size:44px;line-height:1;min-width:54px;text-align:center;opacity:.2;transition:opacity .3s;}
+.day.open .day-num,.day.complete .day-num{opacity:1;}
+.day-ht h2{font-family:var(--dis);font-size:24px;letter-spacing:.5px;line-height:1.1;}
+.day-ht .dsub{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:rgba(240,235,224,.28);margin-top:4px;text-transform:uppercase;}
+.day-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.badge{padding:3px 10px;border-radius:20px;font-family:var(--mono);font-size:9px;letter-spacing:2px;font-weight:700;text-transform:uppercase;white-space:nowrap;}
+.bthink{background:var(--bd);color:var(--blue);border:1px solid rgba(78,201,245,.2);}
+.bcreate{background:var(--pd);color:var(--purple);border:1px solid rgba(192,132,252,.2);}
+.bdesign{background:var(--od);color:var(--orange);border:1px solid rgba(255,159,67,.2);}
+.bbuild{background:var(--gd);color:var(--green);border:1px solid rgba(46,204,113,.2);}
+.bcode{background:var(--yd);color:var(--yellow);border:1px solid rgba(255,208,0,.2);}
+.mini-prog{display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
+.mp-lbl{font-family:var(--mono);font-size:9px;color:rgba(240,235,224,.28);letter-spacing:1px;}
+.mp-track{width:72px;height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;}
+.mp-fill{height:100%;border-radius:2px;transition:width .4s ease;}
+.chev{font-size:13px;color:rgba(240,235,224,.22);transition:transform .3s;margin-left:2px;}
+.day.open .chev{transform:rotate(180deg);}
+
+/* BODY */
+.day-body{display:none;padding:0 24px 28px;border-top:1px solid var(--border);}
+.day.open .day-body{display:block;}
+.sec-bar{margin:18px 0 20px;padding:12px 16px;background:rgba(255,255,255,.025);border-radius:6px;border:1px solid var(--border);}
+.sb-row{display:flex;justify-content:space-between;margin-bottom:6px;}
+.sb-lbl{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:rgba(240,235,224,.28);text-transform:uppercase;}
+.sb-pct{font-family:var(--mono);font-size:11px;}
+.sb-track{height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;}
+.sb-fill{height:100%;border-radius:2px;transition:width .4s ease;}
+.blurb{padding:18px 0 14px;font-size:15px;line-height:1.75;color:rgba(240,235,224,.6);font-weight:300;max-width:660px;}
+.blurb b{color:var(--white);font-weight:500;}
+.fact{margin:0 0 18px;padding:14px 18px;border-left:3px solid var(--yellow);background:rgba(255,208,0,.035);}
+.fact p{font-size:13px;line-height:1.65;color:rgba(240,235,224,.55);}
+.fact b{color:var(--yellow);font-weight:500;}
+.box-lbl{font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;font-weight:700;margin-bottom:9px;display:block;}
+.think{padding:14px 18px;background:var(--bd);border:1px solid rgba(78,201,245,.13);border-radius:6px;margin-bottom:15px;}
+.think .box-lbl{color:var(--blue);}
+.think ul{padding-left:0;list-style:none;}
+.think li{font-size:13px;line-height:1.65;color:rgba(240,235,224,.55);padding:2px 0 2px 17px;position:relative;}
+.think li::before{content:'?';position:absolute;left:0;color:var(--blue);font-family:var(--mono);font-size:10px;font-weight:700;}
+.steps{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}
+.step{display:flex;gap:14px;padding:14px 16px;background:var(--card);border-radius:5px;}
+.sn{font-family:var(--mono);font-size:10px;color:rgba(240,235,224,.16);min-width:24px;padding-top:2px;}
+.step h4{font-size:14px;font-weight:500;margin-bottom:4px;}
+.step p{font-size:13px;line-height:1.6;color:rgba(240,235,224,.48);}
+.quest{padding:16px 18px;background:var(--yd);border:1px solid rgba(255,208,0,.14);border-radius:6px;margin-bottom:14px;}
+.quest .box-lbl{color:var(--yellow);}
+.quest p,.quest li{font-size:13px;line-height:1.65;color:rgba(240,235,224,.6);}
+.quest ul{padding:8px 0 0;list-style:none;}
+.quest li{padding:2px 0 2px 15px;position:relative;}
+.quest li::before{content:'→';position:absolute;left:0;color:var(--yellow);}
+.aitip{padding:14px 18px;background:var(--pd);border:1px solid rgba(192,132,252,.13);border-radius:6px;margin-bottom:14px;}
+.aitip .box-lbl{color:var(--purple);}
+.aitip p{font-size:13px;line-height:1.6;color:rgba(240,235,224,.5);font-style:italic;}
+.prompt{margin-top:9px;background:rgba(0,0,0,.35);padding:10px 13px;border-radius:4px;font-family:var(--mono);font-size:11px;color:var(--purple);line-height:1.6;font-style:normal;}
+.cl-sec h4{font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:rgba(240,235,224,.28);margin-bottom:9px;}
+.cl-sec{margin-bottom:18px;}
+.ci{display:flex;align-items:flex-start;gap:11px;padding:10px 13px;border-radius:5px;cursor:pointer;transition:background .15s;border:1px solid transparent;margin-bottom:5px;}
+.ci:hover{background:rgba(255,255,255,.035);}
+.ci.done{background:rgba(46,204,113,.055);border-color:rgba(46,204,113,.14);}
+.cbox{width:17px;height:17px;border:1.5px solid rgba(255,255,255,.18);border-radius:3px;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.ci.done .cbox{background:var(--green);border-color:var(--green);}
+.ctick{color:#090909;font-size:10px;font-weight:700;display:none;}
+.ci.done .ctick{display:block;}
+.ctext{font-size:13px;line-height:1.5;color:rgba(240,235,224,.62);}
+.ci.done .ctext{color:rgba(240,235,224,.3);text-decoration:line-through;text-decoration-color:rgba(46,204,113,.35);}
+.up-sec{margin-bottom:18px;}
+.up-sec h4{font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:rgba(240,235,224,.28);margin-bottom:9px;}
+.inp-row{display:flex;gap:8px;margin-bottom:7px;flex-wrap:wrap;}
+.txt-inp{flex:1;min-width:160px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:5px;padding:8px 11px;color:var(--white);font-family:var(--sans);font-size:13px;outline:none;transition:border-color .2s;}
+.txt-inp::placeholder{color:rgba(240,235,224,.18);}
+.txt-inp:focus{border-color:rgba(255,255,255,.22);}
+.add-btn{padding:8px 14px;background:transparent;border:1px solid var(--border2);border-radius:5px;color:rgba(240,235,224,.55);font-family:var(--mono);font-size:9px;letter-spacing:1px;cursor:pointer;white-space:nowrap;transition:all .2s;}
+.add-btn:hover{border-color:rgba(255,255,255,.28);color:var(--white);}
+.links-list{display:flex;flex-direction:column;gap:5px;}
+.ltag{display:flex;align-items:center;gap:8px;padding:6px 11px;background:rgba(255,255,255,.04);border-radius:4px;border:1px solid var(--border);}
+.ltag a{font-size:12px;color:var(--blue);text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ltag a:hover{text-decoration:underline;}
+.lrem{background:none;border:none;color:rgba(240,235,224,.18);cursor:pointer;font-size:14px;padding:0 2px;line-height:1;transition:color .15s;}
+.lrem:hover{color:var(--red);}
+.upload-zone{border:1.5px dashed rgba(255,255,255,.09);border-radius:6px;padding:20px;text-align:center;cursor:pointer;transition:all .2s;position:relative;}
+.upload-zone:hover{border-color:rgba(255,255,255,.22);background:rgba(255,255,255,.02);}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.uz-icon{font-size:20px;margin-bottom:6px;opacity:.35;}
+.uz-txt{font-size:11px;color:rgba(240,235,224,.28);font-family:var(--mono);letter-spacing:1px;}
+.previews{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px;}
+.prev{position:relative;}
+.prev img{width:76px;height:56px;object-fit:cover;border-radius:4px;border:1px solid var(--border);}
+.prev-rem{position:absolute;top:-5px;right:-5px;width:17px;height:17px;background:var(--red);border-radius:50%;border:none;color:#fff;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;}
+.note-area{width:100%;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:5px;padding:10px 12px;color:var(--white);font-family:var(--sans);font-size:13px;outline:none;resize:vertical;min-height:76px;line-height:1.6;transition:border-color .2s;}
+.note-area::placeholder{color:rgba(240,235,224,.16);}
+.note-area:focus{border-color:rgba(255,255,255,.18);}
+.res-sec{margin-bottom:18px;}
+.res-sec h4{font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:rgba(240,235,224,.28);margin-bottom:9px;}
+.res-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:9px;}
+.rc{padding:12px 13px;border:1px solid var(--border);border-radius:6px;background:var(--card);text-decoration:none;display:block;transition:border-color .2s;}
+.rc:hover{border-color:var(--border2);}
+.rc-type{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;}
+.rart{color:var(--blue);}.rvid{color:var(--red);}.rtool{color:var(--green);}.rtpl{color:var(--orange);}
+.rc-title{font-size:13px;color:rgba(240,235,224,.78);font-weight:500;line-height:1.35;margin-bottom:2px;}
+.rc-desc{font-size:11px;color:rgba(240,235,224,.32);line-height:1.4;}
+.stretch{padding:13px 16px;border:1px dashed rgba(255,208,0,.14);border-radius:6px;margin-top:12px;}
+.stretch .box-lbl{color:rgba(255,208,0,.45);}
+.stretch ul{padding:0;list-style:none;}
+.stretch li{font-size:12px;color:rgba(240,235,224,.36);line-height:1.65;padding:2px 0 2px 15px;position:relative;}
+.stretch li::before{content:'★';position:absolute;left:0;color:rgba(255,208,0,.3);font-size:10px;}
+.done-banner{display:none;padding:13px 16px;background:rgba(46,204,113,.07);border:1px solid rgba(46,204,113,.18);border-radius:6px;margin-top:14px;text-align:center;}
+.day.complete .done-banner{display:block;}
+.db-txt{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--green);text-transform:uppercase;}
+.spinner{display:none;width:14px;height:14px;border:2px solid rgba(255,208,0,.2);border-top-color:var(--yellow);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto;}
+@keyframes spin{to{transform:rotate(360deg)}}
+footer{text-align:center;padding:56px 24px;border-top:1px solid var(--border);}
+footer h3{font-family:var(--dis);font-size:38px;color:var(--yellow);margin-bottom:12px;}
+footer p{font-size:13px;color:rgba(240,235,224,.32);max-width:440px;margin:0 auto;line-height:1.7;}
+.ver{margin-top:28px;font-family:var(--mono);font-size:9px;letter-spacing:3px;color:rgba(240,235,224,.1);}
+@media(max-width:600px){
+  .day-header{padding:14px;gap:10px;}
+  .day-body{padding:0 14px 22px;}
+  .day-num{font-size:32px;min-width:40px;}
+  .day-ht h2{font-size:18px;}
+  .badge{display:none;}
+  .res-grid{grid-template-columns:1fr;}
+  .inp-row{flex-direction:column;}
+  .hero-inner{gap:16px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ONBOARDING -->
+<div id="onboarding">
+  <div class="ob-box">
+    <div class="ob-tag">▶ Initialising</div>
+    <div class="ob-title">HUXLEY'S<span>GAME MAKER</span></div>
+    <p class="ob-desc">Your personal game design journal. Work through each day, tick off tasks, save links and photos — and build something real. <b>Everything saves to the cloud.</b> Open it on any device, any time.</p>
+    <div class="ob-label">Your name</div>
+    <input class="ob-input" id="ob-name" type="text" placeholder="e.g. HUXLEY" maxlength="20" oninput="obCheck()">
+    <div class="ob-label">Pick your avatar</div>
+    <div class="avatar-row" id="av-row"></div>
+    <button class="ob-go" id="ob-go" disabled onclick="startJourney()">Start my journey →</button>
+    <div class="ob-err" id="ob-err"></div>
+    <div class="spinner" id="ob-spin"></div>
+  </div>
+</div>
+
+<!-- MAIN APP (hidden until logged in) -->
+<div id="app" style="display:none">
+
+  <!-- HOW TO USE -->
+  <div style="max-width:920px;margin:0 auto;padding:40px 24px 32px;border-bottom:1px solid var(--border);">
+    <div class="how-tag">How this works</div>
+    <div class="how-title">Your 8-day build journal</div>
+    <div class="how-grid">
+      <div class="how-card">
+        <div class="how-num">01</div>
+        <h4>Open a day</h4>
+        <p>Click any day card to expand it. Read the intro and the "Did you know?" fact first.</p>
+      </div>
+      <div class="how-card">
+        <div class="how-num">02</div>
+        <h4>Think & make</h4>
+        <p>Answer the questions. Do the Quest. Write, draw, or design your output — in your notebook or on screen.</p>
+      </div>
+      <div class="how-card">
+        <div class="how-num">03</div>
+        <h4>Tick it off</h4>
+        <p>Check off each task as you do it. Paste links to your Canva boards, uploads, playlists, and docs.</p>
+      </div>
+      <div class="how-card">
+        <div class="how-num">04</div>
+        <h4>It saves automatically</h4>
+        <p>Every tick, note, and link saves to the cloud instantly. Open on any device and it's all there.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-inner">
+      <div class="hero-avatar-block">
+        <div class="hero-av" id="h-av">🎮</div>
+        <div class="hero-name" id="h-name">PLAYER</div>
+      </div>
+      <div class="hero-text">
+        <div class="hero-pre">▶ Build Journal · Season 1</div>
+        <div class="hero-h1">HUXLEY'S<br><span>GAME MAKER</span></div>
+        <p class="hero-sub">You play games. Now you're going to <b>make one.</b> Every game ever made started with someone asking "what if?" — work through each day and find out.</p>
+        <div class="hero-progress" style="margin-top:18px;">
+          <div class="hp-row">
+            <span class="hp-label">Overall progress</span>
+            <span class="hp-count" id="g-count">0 / 0 tasks</span>
+          </div>
+          <div class="hp-bar"><div class="hp-fill" id="g-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="days" id="days-root"></div>
+
+  <footer>
+    <h3>You're building something real.</h3>
+    <p>Every developer who shipped a game started with a blank notebook and one question. Keep going.</p>
+    <div class="ver">Huxley's Game Maker · Season 1 · v3.0 · Supabase</div>
+  </footer>
+</div>
+
+<script>
+const SB_URL = 'https://flgrsgpjesxaetuoyesh.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsZ3JzZ3BqZXN4YWV0dW95ZXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5OTM1NjMsImV4cCI6MjA4OTU2OTU2M30.CvqFS3fGu2eJM6Pt2tP4pbU-31EpKPZf_U_Yn3o9vR8';
+const { createClient } = supabase;
+const db = createClient(SB_URL, SB_KEY);
+
+const AVATARS = ['🎮','🕹️','⚔️','🧙','🚀','🐉','🤖','🦊','🎯','⭐'];
+let selAv = '🎮';
+let player = null;
+let state = {};
+let saveTimer = {};
+
+const COLORS = ['#4EC9F5','#C084FC','#C084FC','#FF9F43','#2ECC71','#FF9F43','#FFD000','#2ECC71'];
+
+const DAYS = [
+  {num:'01',title:'Pick Your Game',sub:'Genre · Theme · Core Feeling',badge:'Think',bc:'bthink',color:'#4EC9F5',
+   blurb:'Before a single line of code, you need to answer the most important question in game design: <b>what does your game feel like?</b> Not what it looks like. The feeling. Every great game has one — the dread of <em>Among Us</em>, the satisfaction of <em>Minecraft</em>, the panic of <em>Fall Guys</em>. What\'s yours?',
+   fact:'<b>Did you know?</b> Minecraft was built by one person — Markus Persson ("Notch") — in his spare time. The first version took him six days. One clear idea, that\'s all it takes.',
+   think:['What\'s the last game that made you say "just one more level"? What made it so hard to stop?','Is your game about fighting, solving, surviving, or building something?','Is it solo or multiplayer? Fast or slow? Funny or scary?','Who\'s the player — a hero, a villain, or an ordinary person in a strange world?'],
+   steps:[{n:'1.1',h:'Pick your genre',p:'Choose ONE: Platformer · Top-down adventure · Side-scroller · Puzzle · Survival · RPG · Horror · Racing · Tower Defence. Mix later — commit to one now.'},{n:'1.2',h:'Pick your world',p:'Where does your game take place? Space? Underground? A city? A school? Inside a computer? The weirder, the better.'},{n:'1.3',h:'Write your elevator pitch',p:'One sentence: "It\'s like [game you know] but [your twist]." E.g. "It\'s like Mario but you play as the mushroom trying to escape." This is your game\'s DNA.'}],
+   checks:['Chose a genre I\'m excited about','Chose a world and setting','Wrote my one-sentence elevator pitch','Wrote the MY GAME page in my notebook'],
+   quest:{t:'In your notebook, write the heading MY GAME. Underneath fill in:',items:['Genre: ___','World / Setting: ___','Core feeling (one word — e.g. "dread", "joy", "adrenaline"): ___','Elevator pitch (one sentence): ___']},
+   ai:null,
+   stretch:['Research 3 games in your chosen genre and write down the one thing each does better than anything else','Find a game made by one person (solo dev) in your genre — how long did it take them?'],
+   resources:[{t:'video',l:'Video',title:'How to Design a Game Concept',desc:'GDC talk — starts from scratch',url:'https://www.youtube.com/watch?v=zaxbWXMnwFk'},{t:'article',l:'Article',title:'Game Maker\'s Toolkit — GMTK',desc:'Mark Brown\'s essential channel',url:'https://www.youtube.com/c/MarkBrownGMT'},{t:'article',l:'Article',title:'Extra Credits — Game Design',desc:'The essentials, explained simply',url:'https://www.youtube.com/c/ExtraCreditz'},{t:'tool',l:'Tool',title:'Itch.io — Browse indie games',desc:'Play and study indie games for free',url:'https://itch.io/'},{t:'template',l:'Canva',title:'Game Concept Board Template',desc:'Fill in your genre, world and pitch',url:'https://www.canva.com/create/game-design/'}]},
+
+  {num:'02',title:'Build Your Characters',sub:'Hero · Villain · Supporting Cast',badge:'Create',bc:'bcreate',color:'#C084FC',
+   blurb:'Characters are the soul of a game. Players don\'t remember the code — they remember <b>who they played as</b>. Think of Link from Zelda, Kratos from God of War, Pikachu. They\'re iconic because every detail was deliberate. Today you create yours.',
+   fact:'<b>Design secret:</b> The best game characters have a contradiction at their core. Mario is a plumber who fights giant turtles. Ellie from The Last of Us is a teenage girl who\'s terrifyingly good at survival. Contradiction = interesting. Give your hero a flaw, and your villain a reason.',
+   think:['What does your hero want — not just "to win", but deeper? Find their family? Prove something?','What does your villain want? Most good villains think they\'re the hero of their own story.','What\'s your hero\'s biggest weakness or fear?','Do any of your characters remind you of someone from real life, a film, or a book?'],
+   steps:[{n:'2.1',h:'Design your Hero',p:'Name, age, what they look like, skills, weaknesses, what they want. Write a short paragraph like a Wikipedia entry. Include their signature ability.'},{n:'2.2',h:'Design your Villain',p:'Same drill. But add: why did they become a villain? What happened to them? The best villains have a backstory that makes you go "...okay, I sort of get it."'},{n:'2.3',h:'Design 1–2 Supporting Characters',p:'A sidekick, a mentor, a funny NPC, or a traitor. Choose one type. They need a purpose, not necessarily a deep backstory.'},{n:'2.4',h:'Create Canva Mood Boards',p:'One mood board per character. Images, colours, textures, fonts that feel like them. Add their name and 3 personality words.'}],
+   checks:['Completed a character card for my Hero','Completed a character card for my Villain (including their reason)','Designed at least one supporting character','Created a Canva mood board for the Hero','Created a Canva mood board for the Villain'],
+   quest:{t:'For each character, fill in this card in your notebook:',items:['Name: ___','Role: Hero / Villain / Sidekick / NPC','Looks like: ___','Powers / Skills: ___','Wants: ___','Afraid of / weakness: ___','3 personality words: ___, ___, ___']},
+   ai:{t:'Try asking Claude:',p:'I\'m designing a villain for a [your genre] game set in [your world]. Their backstory is: [your notes]. Help me make them more interesting and give them a memorable visual description. Make them scary but understandable.'},
+   stretch:['Sketch your hero in your notebook — rough shapes are fine. What does their outfit tell us about who they are?','Write a short conversation between your hero and villain — what would they say to each other?'],
+   resources:[{t:'video',l:'Video',title:'How to design iconic game characters',desc:'Noclip documentary channel',url:'https://www.youtube.com/c/NoclipGames'},{t:'article',l:'Article',title:'Character Design in Games',desc:'What makes players care — Extra Credits',url:'https://www.youtube.com/c/ExtraCreditz'},{t:'template',l:'Canva',title:'Character Mood Board',desc:'Visual board for your characters',url:'https://www.canva.com/create/mood-board/'},{t:'tool',l:'Tool',title:'HeroForge — 3D character builder',desc:'Build a 3D version of your character',url:'https://www.heroforge.com/'},{t:'template',l:'Canva',title:'Character Profile Card',desc:'Bio card layout for each character',url:'https://www.canva.com/create/infographic/'}]},
+
+  {num:'03',title:'Write Their Stories',sub:'Bios · Dialogue · World Bible',badge:'Create',bc:'bcreate',color:'#C084FC',
+   blurb:'The best game writers write <b>10× more story than players ever see</b>. Most of it stays hidden — but it makes everything feel real. When a character knows their own history, they act more consistently. More believably. Today you write the deep lore.',
+   fact:'<b>Industry fact:</b> The team behind The Last of Us wrote a full history of the fungal plague decades before the game begins. Players never see most of it — but it made every abandoned building, every NPC, every news clipping feel like it came from a real world.',
+   think:['How did your hero and villain first meet — or have they never met yet?','What\'s the one thing your hero does NOT know that the player eventually finds out?','What\'s the relationship between your supporting characters and the hero?','Write one line of dialogue for your villain — the most memorable thing they\'d ever say.'],
+   steps:[{n:'3.1',h:'Write a bio for each character',p:'3–5 sentences. Where were they born? What shaped them? What happened just before the game begins? Write it in third person, like a journalist.'},{n:'3.2',h:'Write a piece of villain dialogue',p:'One speech, 3–5 sentences. They\'re talking to the hero. They genuinely believe they\'re right. Make the player slightly uncomfortable about whether the villain has a point.'},{n:'3.3',h:'Map the relationships',p:'Draw a spider diagram in your notebook with all characters. Draw a line between pairs. Label each: allies, enemies, rivals, strangers, complicated.'},{n:'3.4',h:'Write a one-page World Bible entry',p:'What happened before the game starts? Is it post-war? Post-apocalypse? A world where magic just appeared? 5–8 sentences about your world\'s recent history.'}],
+   checks:['Wrote a bio for my Hero','Wrote a bio for my Villain','Wrote the villain\'s speech (they believe they\'re the good guy)','Drew a relationship map for all characters','Wrote the World Bible page'],
+   quest:{t:'Villain speech rules:',items:['They must NOT be evil just for the sake of it','They must believe they are helping or fixing something','At least one line must make the player think "...they kind of have a point though"']},
+   ai:{t:'Use Claude as a writing partner here:',p:'Here\'s my villain\'s backstory: [paste your notes]. Write a 5-sentence speech where they confront the hero. They believe they\'re the good guy. Make one line feel genuinely unsettling because it might be true.'},
+   stretch:['Add a "lore entry" — a fake in-game book, journal, or news article from inside your world','Give your world a name and write a one-sentence history of how it began'],
+   resources:[{t:'article',l:'Article',title:'How to write a great villain',desc:'Character motivation deep-dive',url:'https://www.masterclass.com/articles/how-to-write-a-villain'},{t:'video',l:'Video',title:'What makes a great game story?',desc:'Game Maker\'s Toolkit',url:'https://www.youtube.com/c/MarkBrownGMT'},{t:'template',l:'Canva',title:'World Building Map',desc:'Visual layout for your world\'s lore',url:'https://www.canva.com/create/map/'},{t:'article',l:'Article',title:'Brandon Sanderson\'s free writing lectures',desc:'World-building from a master storyteller',url:'https://www.youtube.com/c/BrandonSanderson'}]},
+
+  {num:'04',title:'Design Your First 3 Levels',sub:'Mood Boards · Difficulty Curve · Maps',badge:'Design',bc:'bdesign',color:'#FF9F43',
+   blurb:'Levels are not just obstacle courses — they\'re <b>storytelling devices</b>. Level 1 teaches you who you are. Level 2 challenges you. Level 3 changes you. Every great game uses levels to move the player emotionally, not just physically.',
+   fact:'<b>Level design secret:</b> Nintendo calls it "play = learn." In Super Mario Bros, Level 1-1 has no text instructions. Mario sees a mushroom, touches it, gets bigger. One moment teaches: touching things here is good. Every obstacle after builds on that lesson silently.',
+   think:['What is the player learning in Level 1? A new ability? A rule of the world?','How does Level 2 raise the stakes? What goes wrong, or gets harder?','What\'s the big moment at the end of Level 3? A boss fight? A revelation?','What does each level look, sound, and feel like? Hot? Cold? Eerie?'],
+   steps:[{n:'4.1',h:'Name and theme each level',p:'"The Abandoned Labs" beats "Level 1." Give each level a name, a setting, and one word that describes its feeling. Safe → Tense → Dangerous is a classic arc.'},{n:'4.2',h:'Write a level brief for each',p:'For each level: what happens? What\'s the objective? What enemies appear? What ability does the player use? How does it end? Bullet points, half a page per level.'},{n:'4.3',h:'Create Canva Mood Boards — one per level',p:'Colours, textures, environments, lighting, mood. Level 1 might be green and warm. Level 3 might be dark red and industrial. This is your visual brief.'},{n:'4.4',h:'Sketch a top-down map of Level 1',p:'On graph paper: start point, end point, enemy locations, collectables, hidden areas. Designer\'s sketch — not precise art.'}],
+   checks:['Named and themed all 3 levels','Wrote a brief for Level 1','Wrote a brief for Level 2','Wrote a brief for Level 3','Created Canva mood board for Level 1','Created Canva mood board for Level 2','Created Canva mood board for Level 3','Sketched a top-down map of Level 1 on graph paper','Drew a difficulty curve diagram'],
+   quest:{t:'The Difficulty Curve Challenge — draw a line graph:',items:['X axis = time through the game (Levels 1 → 3)','Y axis = difficulty / tension','Mark where the player feels powerful','Mark where they feel scared','Mark where they might feel confused']},
+   ai:{t:'Ask Claude to stress-test your level design:',p:'Here\'s my Level 1 brief: [paste your brief]. I want players to feel safe but curious. Is there anything that might confuse a first-time player? What\'s missing? What would make it more fun?'},
+   stretch:['Write "level flavour text" — a sign found inside the level that hints at the story','Plan a secret room or Easter egg in Level 1 — what does the player find?'],
+   resources:[{t:'video',l:'Video',title:'How games use level design to tell stories',desc:'GMTK — essential watching',url:'https://www.youtube.com/watch?v=NoAzpa1x7jU'},{t:'template',l:'Canva',title:'Level Mood Board Template',desc:'Visual board for each of your levels',url:'https://www.canva.com/create/mood-board/'},{t:'tool',l:'Tool',title:'Excalidraw — free sketching tool',desc:'Draw your level maps digitally',url:'https://excalidraw.com/'},{t:'article',l:'Article',title:'Level design in detail — GDC Vault',desc:'Professional techniques explained',url:'https://gdcvault.com/'}]},
+
+  {num:'05',title:'Game Mechanics & Rules',sub:'How to Play · Win/Lose · Systems',badge:'Build',bc:'bbuild',color:'#2ECC71',
+   blurb:'Mechanics are the actual <b>rules of your game</b>. What can the player do? What happens when they do it? Every mechanic is basically: <b>if [player does X], then [Y happens].</b> That\'s programming, right there.',
+   fact:'<b>The elegance rule:</b> The best games have very few mechanics but very deep combinations. Chess has 6 piece types. Tetris has 7 shapes. Complexity comes from simple rules interacting — not hundreds of rules. If you can explain your game in 3 sentences, that\'s a great sign.',
+   think:['What are the 3 core things the player can DO?','How does the player win? How do they lose?','Is there a health system? Lives? Score? Timer?','What\'s the one mechanic unique to YOUR game — the thing no other game has?'],
+   steps:[{n:'5.1',h:'Write your Core Mechanic document',p:'List 3–5 things the player can do. For each: "When the player presses [button], [this happens]." Simple. This is your game\'s rulebook.'},{n:'5.2',h:'Define win and lose conditions',p:'"The player wins when..." and "The player loses when..." A player should never lose and think "that was unfair" — they should think "I need to try again."'},{n:'5.3',h:'Design your enemy AI behaviour',p:'How do your enemies behave? Patrol? Chase? Flee? Write a simple IF/THEN map for your most common enemy. This is the beginning of actual game logic.'},{n:'5.4',h:'Playtest on paper',p:'Explain your game to someone out loud. Pretend to play it with just the rules document. Where does it get confusing? Write those gaps down.'}],
+   checks:['Wrote Core Mechanic document (3–5 actions as when/then rules)','Wrote win condition','Wrote lose condition','Wrote enemy AI as IF/THEN rules','Did a paper playtest and noted what confused people'],
+   quest:{t:'Write your enemy\'s AI as IF/THEN rules. Example:',items:['IF enemy doesn\'t see player → patrol back and forth','IF enemy sees player within 5 tiles → chase player','IF enemy catches player → player loses 1 life','IF enemy health = 0 → enemy dies, drop item']},
+   ai:{t:'Cursor is built for exactly this — ask it:',p:'I want to code a basic enemy AI in Python that patrols until it sees the player, then chases. I\'m a beginner. Can you explain what the logic would look like BEFORE writing any code, so I understand what it\'s doing?'},
+   stretch:['Design a power-up — what does it do and how does it change gameplay?','Draw a flowchart of what happens in your game from start to finish'],
+   resources:[{t:'video',l:'Video',title:'What is a game mechanic?',desc:'Extra Credits — clear and short',url:'https://www.youtube.com/c/ExtraCreditz'},{t:'article',l:'Article',title:'Game Balance basics',desc:'How to make fair, fun challenges',url:'https://www.gamedeveloper.com/'},{t:'template',l:'Canva',title:'Game Rules Document',desc:'Layout for your mechanics doc',url:'https://www.canva.com/create/documents/'},{t:'tool',l:'Tool',title:'BoardGameGeek',desc:'Study how other games handle mechanics',url:'https://boardgamegeek.com/'}]},
+
+  {num:'06',title:'Sound & Music Design',sub:'Audio Identity · Emotion Through Sound',badge:'Design',bc:'bdesign',color:'#FF9F43',
+   blurb:'Turn off the sound on any game you love. It\'s a completely different experience. <b>Sound carries 50% of the emotional weight in games.</b> The ping when you collect something. The music before a boss fight. The silence that makes horror terrifying. Today you design your audio identity.',
+   fact:'<b>The Tetris effect:</b> When Tetris was ported to Game Boy in 1989, the sound team had only three audio channels. They used those limitations to create one of the most iconic video game soundtracks of all time. Constraints make you creative.',
+   think:['What does your main theme music sound like? Fast? Electronic? Orchestral? Name a song it reminds you of.','What sound plays when the player dies — funny? Dramatic? Sad?','What\'s the audio cue that tells the player they\'re in danger?','Is there a character who has their own musical theme?'],
+   steps:[{n:'6.1',h:'Create a Sound Bible',p:'List every important sound your game needs. For each: what triggers it, what it sounds like in words (e.g. "a sharp metallic clang"), and what it makes the player feel.'},{n:'6.2',h:'Build a music mood playlist',p:'Find real songs on YouTube or Spotify that match the feel of your 3 levels. One track per level. This is your "temp track" — placeholder until you make your own.'},{n:'6.3',h:'Design the boss fight audio moment',p:'When the villain appears for the first time, what does the player hear? Describe the music shift, ambient sounds, any voice lines. Make it a moment.'}],
+   checks:['Wrote a Sound Bible (sounds + triggers + emotions)','Built a 3-track playlist — one per level','Designed the boss fight audio moment','Saved playlist links below'],
+   quest:{t:'The Sound Game:',items:['Close your eyes','Play 30 seconds of one of your chosen level tracks','Without opening your eyes, write 5 words or images that come into your head','These words are now part of your level\'s design brief']},
+   ai:null,
+   stretch:['Find a royalty-free sound on freesound.org for your hero\'s footsteps and jump','Write the lyrics to your game\'s main title theme — even just two lines'],
+   resources:[{t:'tool',l:'Tool',title:'Freesound.org',desc:'Free sound effects, royalty-free',url:'https://freesound.org/'},{t:'tool',l:'Tool',title:'BeepBox',desc:'Make 8-bit music in your browser for free',url:'https://www.beepbox.co/'},{t:'video',l:'Video',title:'How video game music works',desc:'Adam Neely — brilliant and accessible',url:'https://www.youtube.com/c/AdamNeely'},{t:'tool',l:'Tool',title:'Chrome Music Lab',desc:'Visual, playable music creation',url:'https://musiclab.chromeexperiments.com/'}]},
+
+  {num:'07',title:'First Code Sprint',sub:'Cursor · Python · Your First Moving Thing',badge:'Code',bc:'bcode',color:'#FFD000',
+   blurb:'You\'ve designed a world, characters, levels, mechanics, and sounds. Now something <b>actually happens on screen</b>. Today\'s goal isn\'t to build your game — it\'s to build one tiny, working piece of it. A rectangle that moves. Real, working code.',
+   fact:'<b>How professionals work:</b> They don\'t build the whole game at once. They build the smallest possible working thing — a "prototype" — and test it. Then add the next piece. Your entire career as a developer will be: make the smallest thing work first. Everything else is just more of that.',
+   think:['What\'s the very first thing that should happen when you press a button in your game?','If your game was JUST a box that moves — nothing else — would that feel fun? What would you add first?','What\'s the difference between a variable and a function? (Look it up if you don\'t know — it\'ll matter today.)'],
+   steps:[{n:'7.1',h:'Set up your Cursor project',p:'Open Cursor. Create a new folder called "mygame". Inside it, create a file called game.py. This is your project home.'},{n:'7.2',h:'Build a moving rectangle',p:'Using Pygame (ask Claude to help install it), create a window with a coloured rectangle that moves when you press arrow keys. That\'s the whole goal. Don\'t add anything else until this works.'},{n:'7.3',h:'Add a boundary',p:'Make the rectangle unable to go off screen edges. You\'ve just implemented a game rule. You wrote your first mechanic.'},{n:'7.4',h:'Add a second rectangle (your first enemy)',p:'Place a static rectangle on screen. When yours touches it, print "COLLISION!" to the console. Collision detection — a core system in every game ever made.'}],
+   checks:['Installed Python and Pygame with Claude\'s help','Created game.py in Cursor','Got a window open with a coloured rectangle','Arrow key movement working','Screen boundary working','A second rectangle on screen','Collision detection printing to console','Took a screenshot for my notebook'],
+   quest:{t:'The "I Made This" moment:',items:['When your rectangle moves, screenshot it','Upload it below','Title it: Day 7 — First Code','This is the first pixel of your game. Every game ever made started here.']},
+   ai:{t:'This is exactly what Cursor + Claude is built for. Try:',p:'I\'m 13 and learning to code. I want to build a simple game in Python using Pygame. Start by showing me how to create a window and draw a rectangle that moves with arrow keys. Explain EVERY line as you write it — I want to understand what\'s happening, not just copy it.'},
+   stretch:['Change the rectangle\'s colour using variables — can you make it change colour when it moves?','Add a simple title bar to your Pygame window with your game\'s name'],
+   resources:[{t:'article',l:'Docs',title:'Python for Beginners',desc:'Official Python tutorial — start here',url:'https://docs.python.org/3/tutorial/'},{t:'video',l:'Video',title:'Pygame in 90 minutes — Tech With Tim',desc:'Clear, step-by-step beginner tutorial',url:'https://www.youtube.com/c/TechWithTim'},{t:'tool',l:'Tool',title:'Replit — code in your browser',desc:'No install needed, run Python online',url:'https://replit.com/'},{t:'video',l:'Video',title:'How does game development work?',desc:'Fireship — 5-minute explainer',url:'https://www.youtube.com/@Fireship'},{t:'tool',l:'Tool',title:'Pygame documentation',desc:'The official Pygame reference',url:'https://www.pygame.org/docs/'}]},
+
+  {num:'08',title:'Your Game Comes Alive',sub:'Sprites · AI Art · The Loop',badge:'Build',bc:'bbuild',color:'#2ECC71',
+   blurb:'Your rectangle is about to become your character. Today you replace the placeholder with a real image, add gravity or health, and start to see your <b>design decisions become playable reality</b>. This is the day it stops feeling like an exercise and starts feeling like a game.',
+   fact:'<b>The first game sprite ever</b> was in the 1975 arcade game Gun Fight. It was 12×12 pixels — a 12×12 square. Your character will probably look better than that.',
+   think:['What\'s the one mechanic from your Day 5 doc you most want to see working today?','What makes a game actually fun to play — what is "game feel"? (Google this before you start.)','When someone plays your game for the first time, what\'s the first 30 seconds like?'],
+   steps:[{n:'8.1',h:'Generate your character sprite using AI',p:'Use Adobe Firefly, Canva AI, or Bing Image Creator. Generate a character image based on your Day 2 description. Save as PNG with transparent background.'},{n:'8.2',h:'Replace your rectangle with the sprite',p:'Ask Claude in Cursor how to load an image file in Pygame and display it at the player\'s position. Your character now has a face.'},{n:'8.3',h:'Add one mechanic from your design doc',p:'Gravity? Jumping? Score counter? Health bar? Choose ONE from your Day 5 list and implement it with Claude\'s help. One thing. Working. No rushing.'},{n:'8.4',h:'Show someone and playtest',p:'Show a parent or sibling. Watch them play for 60 seconds without telling them anything. Note every time they look confused. Their confusion is your to-do list.'}],
+   checks:['Generated a character sprite with AI','Sprite loaded and displaying in Pygame','One new mechanic added and working','Did a live playtest with someone watching','Wrote my playtest debrief notes below'],
+   quest:{t:'Playtest Debrief — write in your notebook:',items:['What did they do that you didn\'t expect?','What confused them?','What made them smile or laugh?','What\'s the ONE thing you\'d fix first?']},
+   ai:{t:'A powerful Cursor prompt for this stage:',p:'Here\'s my game code so far: [paste it]. I want to add simple gravity so the player falls and can jump with spacebar. Walk me through it step by step and explain why each part is necessary.'},
+   stretch:['Add background music using Pygame\'s mixer — use one of your Day 6 tracks as an .mp3','Add a simple score display in the corner','Build a title screen that shows before the game starts'],
+   resources:[{t:'tool',l:'Tool',title:'Adobe Firefly — AI image generation',desc:'Free AI art for your character sprites',url:'https://firefly.adobe.com/'},{t:'tool',l:'Tool',title:'Canva AI image generator',desc:'Generate sprites and backgrounds',url:'https://www.canva.com/ai-image-generator/'},{t:'tool',l:'Tool',title:'Piskel — free pixel art editor',desc:'Make your own pixel art sprites',url:'https://www.piskelapp.com/'},{t:'video',l:'Video',title:'Adding sprites to Pygame — Clear Code',desc:'Best Pygame tutorial channel',url:'https://www.youtube.com/c/ClearCode'},{t:'article',l:'Article',title:'What is game feel? — GMTK',desc:'Why some games feel amazing to control',url:'https://www.youtube.com/watch?v=AJdEqssNZ-U'}]}
+];
+
+// ── ONBOARDING ──
+const avRow = document.getElementById('av-row');
+AVATARS.forEach(a => {
+  const b = document.createElement('button');
+  b.className = 'av-btn' + (a === selAv ? ' sel' : '');
+  b.textContent = a;
+  b.onclick = () => { selAv = a; document.querySelectorAll('.av-btn').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); };
+  avRow.appendChild(b);
+});
+
+function obCheck() {
+  document.getElementById('ob-go').disabled = document.getElementById('ob-name').value.trim().length < 2;
+}
+
+async function startJourney() {
+  const name = document.getElementById('ob-name').value.trim().toUpperCase();
+  if (!name) return;
+  const btn = document.getElementById('ob-go');
+  const spin = document.getElementById('ob-spin');
+  const err = document.getElementById('ob-err');
+  btn.style.display = 'none'; spin.style.display = 'block'; err.textContent = '';
+  try {
+    let { data, error } = await db.from('gm_player').select('*').eq('username', name).maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      const ins = await db.from('gm_player').insert({username: name, avatar: selAv}).select().single();
+      if (ins.error) throw ins.error;
+      data = ins.data;
+    }
+    player = data;
+    localStorage.setItem('gm_player_id', data.id);
+    localStorage.setItem('gm_player_name', data.username);
+    localStorage.setItem('gm_player_av', data.avatar);
+    await loadAndRender();
+  } catch(e) {
+    err.textContent = 'Could not connect. Check your internet and try again.';
+    btn.style.display = 'block'; spin.style.display = 'none';
+  }
+}
+
+async function tryAutoLogin() {
+  const id = localStorage.getItem('gm_player_id');
+  if (!id) return false;
+  try {
+    const { data } = await db.from('gm_player').select('*').eq('id', id).maybeSingle();
+    if (!data) return false;
+    player = data;
+    return true;
+  } catch { return false; }
+}
+
+// ── LOAD DATA ──
+async function loadState() {
+  if (!player) return;
+  const [checks, notes, links, images] = await Promise.all([
+    db.from('gm_progress').select('*').eq('player_id', player.id),
+    db.from('gm_notes').select('*').eq('player_id', player.id),
+    db.from('gm_links').select('*').eq('player_id', player.id),
+    db.from('gm_images').select('*').eq('player_id', player.id)
+  ]);
+  state = {};
+  (checks.data||[]).forEach(r => {
+    if (!state[r.day_index]) state[r.day_index] = {checks:{}, notes:'', links:[], images:[]};
+    state[r.day_index].checks[r.check_index] = r.done;
+  });
+  (notes.data||[]).forEach(r => {
+    if (!state[r.day_index]) state[r.day_index] = {checks:{}, notes:'', links:[], images:[]};
+    state[r.day_index].notes = r.notes;
+  });
+  (links.data||[]).forEach(r => {
+    if (!state[r.day_index]) state[r.day_index] = {checks:{}, notes:'', links:[], images:[]};
+    if (!state[r.day_index].links) state[r.day_index].links = [];
+    state[r.day_index].links.push({id: r.id, url: r.url});
+  });
+  (images.data||[]).forEach(r => {
+    if (!state[r.day_index]) state[r.day_index] = {checks:{}, notes:'', links:[], images:[]};
+    if (!state[r.day_index].images) state[r.day_index].images = [];
+    state[r.day_index].images.push({id: r.id, data: r.data});
+  });
+  DAYS.forEach((_,i) => { if (!state[i]) state[i] = {checks:{}, notes:'', links:[], images:[]}; });
+}
+
+async function loadAndRender() {
+  await loadState();
+  document.getElementById('onboarding').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('h-av').textContent = player.avatar;
+  document.getElementById('h-name').textContent = player.username;
+  document.getElementById('days-root').innerHTML = DAYS.map((d,i) => renderDay(d,i)).join('');
+  document.getElementById('day-0').classList.add('open');
+  updateGlobal();
+}
+
+// ── RENDER ──
+function getDS(i) { return state[i] || {checks:{}, notes:'', links:[], images:[]}; }
+function getDone(i) { const ds = getDS(i); return Object.values(ds.checks).filter(Boolean).length; }
+function getTotal(i) { return DAYS[i].checks.length; }
+function getPct(i) { const t=getTotal(i); return t>0?Math.round(getDone(i)/t*100):0; }
+
+function renderDay(d, i) {
+  const col = COLORS[i];
+  const ds = getDS(i);
+  const pct = getPct(i);
+  const done = getDone(i);
+  const total = getTotal(i);
+  const isComplete = pct === 100;
+
+  const stepsH = d.steps.map(s=>`<div class="step"><div class="sn">${s.n}</div><div><h4>${s.h}</h4><p>${s.p}</p></div></div>`).join('');
+  const thinkH = d.think.map(q=>`<li>${q}</li>`).join('');
+  const questI = d.quest.items.map(it=>`<li>${it}</li>`).join('');
+  const stretchH = d.stretch.map(s=>`<li>${s}</li>`).join('');
+  const resH = d.resources.map(r=>`<a class="rc" href="${r.url}" target="_blank" rel="noopener"><div class="rc-type r${r.t}">${r.l}</div><div class="rc-title">${r.title}</div><div class="rc-desc">${r.desc}</div></a>`).join('');
+  const checksH = d.checks.map((c,ci)=>`<div class="ci ${ds.checks[ci]?'done':''}" onclick="toggleCheck(${i},${ci})"><div class="cbox"><span class="ctick">✓</span></div><span class="ctext">${c}</span></div>`).join('');
+  const linksH = (ds.links||[]).map((l,li)=>`<div class="ltag"><a href="${l.url}" target="_blank" rel="noopener">${l.url}</a><button class="lrem" onclick="removeLink(${i},'${l.id}')">×</button></div>`).join('');
+  const prevsH = (ds.images||[]).map((img,pi)=>`<div class="prev"><img src="${img.data}" alt="upload"><button class="prev-rem" onclick="removeImage(${i},'${img.id}')">×</button></div>`).join('');
+  const aiH = d.ai ? `<div class="aitip"><span class="box-lbl">🤖 Cursor / Claude tip</span><p>${d.ai.t}</p><div class="prompt">${d.ai.p}</div></div>` : '';
+
+  return `<div class="day ${isComplete?'complete':''}" id="day-${i}" data-day="${i}">
+  <div class="day-header" onclick="toggleDay(${i})">
+    <div class="day-num" style="color:${col}">${d.num}</div>
+    <div class="day-ht"><h2>${d.title}</h2><div class="dsub">${d.sub}</div></div>
+    <div class="day-right">
+      <div class="badge ${d.bc}">${d.badge}</div>
+      <div class="mini-prog">
+        <div class="mp-lbl">${done}/${total}</div>
+        <div class="mp-track"><div class="mp-fill" style="background:${col};width:${pct}%"></div></div>
+      </div>
+      <div class="chev">▾</div>
+    </div>
+  </div>
+  <div class="day-body">
+    <div class="sec-bar">
+      <div class="sb-row"><span class="sb-lbl">Day ${i+1} progress</span><span class="sb-pct" style="color:${col}">${pct}%</span></div>
+      <div class="sb-track"><div class="sb-fill" style="background:${col};width:${pct}%"></div></div>
+    </div>
+    <div class="blurb">${d.blurb}</div>
+    <div class="fact"><p>${d.fact}</p></div>
+    <div class="think"><span class="box-lbl">🤔 Think about it</span><ul>${thinkH}</ul></div>
+    <div class="steps">${stepsH}</div>
+    <div class="quest"><span class="box-lbl">⚡ Quest</span><p>${d.quest.t}</p><ul>${questI}</ul></div>
+    ${aiH}
+    <div class="cl-sec"><h4>✓ Task checklist</h4>${checksH}</div>
+    <div class="up-sec">
+      <h4>📎 Add links — Canva boards, playlists, docs, anything</h4>
+      <div class="inp-row">
+        <input class="txt-inp" type="url" placeholder="Paste a link..." id="li-${i}">
+        <button class="add-btn" onclick="addLink(${i})">+ Add</button>
+      </div>
+      <div class="links-list" id="links-${i}">${linksH}</div>
+    </div>
+    <div class="up-sec">
+      <h4>📸 Upload photos — notebook pages, sketches, screenshots</h4>
+      <div class="upload-zone">
+        <input type="file" accept="image/*" multiple onchange="handleUpload(event,${i})">
+        <div class="uz-icon">📷</div>
+        <div class="uz-txt">Click to upload · or drag & drop</div>
+      </div>
+      <div class="previews" id="prevs-${i}">${prevsH}</div>
+    </div>
+    <div class="up-sec">
+      <h4>📝 Notes</h4>
+      <textarea class="note-area" placeholder="Ideas, questions, things to try..." id="note-${i}" onchange="saveNote(${i},this.value)">${ds.notes||''}</textarea>
+    </div>
+    <div class="res-sec"><h4>📚 Resources & links</h4><div class="res-grid">${resH}</div></div>
+    <div class="stretch"><span class="box-lbl">⭐ Stretch challenge</span><ul>${stretchH}</ul></div>
+    <div class="done-banner"><div class="db-txt">✓ Day ${i+1} complete — great work!</div></div>
+  </div>
+</div>`;
+}
+
+// ── INTERACTIONS ──
+function toggleDay(i) { document.getElementById('day-'+i).classList.toggle('open'); }
+
+async function toggleCheck(i, ci) {
+  if (!state[i]) state[i] = {checks:{}, notes:'', links:[], images:[]};
+  const newVal = !state[i].checks[ci];
+  state[i].checks[ci] = newVal;
+  flashSave();
+  rerenderDay(i);
+  updateGlobal();
+  await db.from('gm_progress').upsert({player_id: player.id, day_index: i, check_index: ci, done: newVal, updated_at: new Date().toISOString()}, {onConflict: 'player_id,day_index,check_index'});
+}
+
+async function addLink(i) {
+  const inp = document.getElementById('li-'+i);
+  let val = inp.value.trim();
+  if (!val) return;
+  if (!val.startsWith('http')) val = 'https://' + val;
+  inp.value = '';
+  const { data, error } = await db.from('gm_links').insert({player_id: player.id, day_index: i, url: val}).select().single();
+  if (!error && data) {
+    if (!state[i]) state[i] = {checks:{}, notes:'', links:[], images:[]};
+    if (!state[i].links) state[i].links = [];
+    state[i].links.push({id: data.id, url: val});
+    flashSave();
+    document.getElementById('links-'+i).innerHTML = (state[i].links||[]).map((l,li)=>`<div class="ltag"><a href="${l.url}" target="_blank" rel="noopener">${l.url}</a><button class="lrem" onclick="removeLink(${i},'${l.id}')">×</button></div>`).join('');
+  }
+}
+
+async function removeLink(i, id) {
+  state[i].links = (state[i].links||[]).filter(l => l.id !== id);
+  document.getElementById('links-'+i).innerHTML = (state[i].links||[]).map((l)=>`<div class="ltag"><a href="${l.url}" target="_blank" rel="noopener">${l.url}</a><button class="lrem" onclick="removeLink(${i},'${l.id}')">×</button></div>`).join('');
+  await db.from('gm_links').delete().eq('id', id);
+  flashSave();
+}
+
+async function handleUpload(ev, i) {
+  const files = [...ev.target.files];
+  for (const f of files) {
+    const data = await new Promise((res,rej) => { const r = new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(f); });
+    const { data: row, error } = await db.from('gm_images').insert({player_id: player.id, day_index: i, data}).select().single();
+    if (!error && row) {
+      state[i].images.push({id: row.id, data});
+      flashSave();
+      document.getElementById('prevs-'+i).innerHTML = (state[i].images||[]).map(img=>`<div class="prev"><img src="${img.data}" alt="upload"><button class="prev-rem" onclick="removeImage(${i},'${img.id}')">×</button></div>`).join('');
+    }
+  }
+}
+
+async function removeImage(i, id) {
+  state[i].images = (state[i].images||[]).filter(img => img.id !== id);
+  document.getElementById('prevs-'+i).innerHTML = (state[i].images||[]).map(img=>`<div class="prev"><img src="${img.data}" alt="upload"><button class="prev-rem" onclick="removeImage(${i},'${img.id}')">×</button></div>`).join('');
+  await db.from('gm_images').delete().eq('id', id);
+  flashSave();
+}
+
+function saveNote(i, val) {
+  if (!state[i]) state[i] = {checks:{}, notes:'', links:[], images:[]};
+  state[i].notes = val;
+  clearTimeout(saveTimer[i]);
+  saveTimer[i] = setTimeout(async () => {
+    await db.from('gm_notes').upsert({player_id: player.id, day_index: i, notes: val, updated_at: new Date().toISOString()}, {onConflict: 'player_id,day_index'});
+    flashSave();
+  }, 800);
+}
+
+function rerenderDay(i) {
+  const el = document.getElementById('day-'+i);
+  const wasOpen = el.classList.contains('open');
+  const tmp = document.createElement('div');
+  tmp.innerHTML = renderDay(DAYS[i], i);
+  const newEl = tmp.firstElementChild;
+  if (wasOpen) newEl.classList.add('open');
+  el.replaceWith(newEl);
+}
+
+function updateGlobal() {
+  let total=0, done=0;
+  DAYS.forEach((_,i) => { total+=getTotal(i); done+=getDone(i); });
+  const pct = total>0?Math.round(done/total*100):0;
+  document.getElementById('g-count').textContent = done+' / '+total+' tasks done';
+  document.getElementById('g-fill').style.width = pct+'%';
+}
+
+let saveDotTimer;
+function flashSave() {
+  // no visible dot needed, just clears any pending
+  clearTimeout(saveDotTimer);
+}
+
+// ── INIT ──
+(async () => {
+  const ok = await tryAutoLogin();
+  if (ok) { await loadAndRender(); }
+})();
+</script>
+</body>
+</html>
