@@ -208,6 +208,12 @@ body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-ser
 .nota:focus{border-color:var(--border2);}
 
 /* ── RESOURCES ── */
+.canva-cta{display:inline-flex;align-items:center;gap:8px;margin:14px 0 4px;padding:11px 18px;background:#7D2AE8;border-radius:6px;text-decoration:none;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;color:#fff;font-weight:700;text-transform:uppercase;transition:opacity .2s;border:none;cursor:pointer;}
+.canva-cta:hover{opacity:.85;}
+.canva-cta svg{flex-shrink:0;}
+.canva-wrap{margin-bottom:18px;padding:14px 17px;background:rgba(125,42,232,0.07);border:1px solid rgba(125,42,232,0.18);border-radius:6px;}
+.canva-wrap .bl{color:#9B59E8;}
+.canva-wrap p{font-size:13px;color:var(--text2);line-height:1.55;margin-bottom:2px;}
 .ressec{margin-bottom:16px;}
 .ressec h4{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--text3);margin-bottom:8px;}
 .resgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:8px;}
@@ -459,8 +465,14 @@ async function startJourney(){
   try{
     let{data,error}=await db.from('gm_player').select('*').eq('username',name).maybeSingle();
     if(error)throw error;
-    if(!data){const ins=await db.from('gm_player').insert({username:name,avatar:selAv}).select().single();if(ins.error)throw ins.error;data=ins.data;}
+    if(!data){
+      // Brand new player — create with avatar and lock immediately
+      const ins=await db.from('gm_player').insert({username:name,avatar:selAv,locked_at:new Date().toISOString()}).select().single();
+      if(ins.error)throw ins.error;
+      data=ins.data;
+    }
     player=data;
+    // Persist ID so this device never shows onboarding again
     localStorage.setItem('gm_pid',data.id);
     await loadAndRender();
   }catch(e){err.textContent='Could not connect. Check your internet and try again.';btn.style.display='block';spin.style.display='none';}
@@ -494,10 +506,17 @@ async function startParent(){
 }
 
 async function tryAutoLogin(){
+  // If we have a stored player ID, skip onboarding entirely — never ask again
   const pid=localStorage.getItem('gm_pid');
   if(pid){
-    try{const{data}=await db.from('gm_player').select('*').eq('id',pid).maybeSingle();if(data){player=data;return 'player';}}catch{}
+    try{
+      const{data}=await db.from('gm_player').select('*').eq('id',pid).maybeSingle();
+      if(data){player=data;return 'player';}
+      // ID stale (e.g. DB reset) — clear it and show onboarding
+      localStorage.removeItem('gm_pid');
+    }catch{}
   }
+  // Check for returning parent session
   const parid=localStorage.getItem('gm_par_id');
   const parcid=localStorage.getItem('gm_par_child');
   if(parid&&parcid){
@@ -621,6 +640,14 @@ function renderDay(d,i){
   const linksH=(ds.links||[]).map(l=>`<div class="ltag"><a href="${l.url}" target="_blank" rel="noopener">${l.url}</a><button class="lrem" onclick="removeLink(${i},'${l.id}')">×</button></div>`).join('');
   const prevsH=(ds.images||[]).map(img=>`<div class="prev"><img src="${img.data}" alt="upload" onclick="openLightbox('${img.data}','Day ${i+1} — ${d.title}')"><button class="prem" onclick="removeImage(${i},'${img.id}')">×</button></div>`).join('');
   const aiH=d.ai?`<div class="aitip"><span class="bl">🤖 Cursor / Claude tip</span><p>${d.ai.t}</p><div class="prompt">${d.ai.p}</div></div>`:'';
+  const canvaH=d.canva?`<div class="canva-wrap">
+    <span class="bl">🎨 Your Canva template</span>
+    <p>${d.canva.desc}</p>
+    <a class="canva-cta" href="${d.canva.url}" target="_blank" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" fill="white"/></svg>
+      Open Day ${d.num} template in Canva →
+    </a>
+  </div>`:'';
   const sumH=`<div class="summary-sec">
     <span class="bl">✍️ Day summary</span>
     <p class="sdesc">When you're done, write a quick summary of what you made today. This appears in the parent view and builds your game portfolio.</p>
@@ -642,6 +669,7 @@ function renderDay(d,i){
     <div class="fact"><p>${d.fact}</p></div>
     <div class="think"><span class="bl">🤔 Think about it</span><ul>${thinkH}</ul></div>
     <div class="steps">${stepsH}</div>
+    ${canvaH}
     <div class="quest"><span class="bl">⚡ Quest</span><p>${d.quest.t}</p><ul>${questI}</ul></div>
     ${aiH}
     <div class="clsec"><h4>✓ Task checklist</h4>${checksH}</div>
@@ -757,6 +785,7 @@ const DAYS=[
    quest:{t:'In your notebook, write the heading MY GAME. Underneath fill in:',items:['Genre: ___','World / Setting: ___','Core feeling (one word — e.g. "dread", "joy", "adrenaline"): ___','Elevator pitch (one sentence): ___']},
    ai:null,
    stretch:['Research 3 games in your chosen genre — write down the one thing each does better than anything else','Find a solo dev game in your genre — how long did it take them?'],
+   canva:{url:'https://www.canva.com/design/DAHEefAqpHM/SdxNkpfAXuQQqLLfGBjw6g/view?utm_content=DAHEefAqpHM&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview',desc:'5 slides covering genre selection, world mood board (drop in 4 images), colour palette circles, and your elevator pitch template. Open it and start filling it in as you work through the steps above.'},
    resources:[{t:'video',l:'Video',title:'How to Design a Game Concept',desc:'GDC talk — starts from scratch',url:'https://www.youtube.com/watch?v=zaxbWXMnwFk'},{t:'article',l:'Article',title:'Game Maker\'s Toolkit',desc:'Mark Brown\'s essential channel',url:'https://www.youtube.com/c/MarkBrownGMT'},{t:'article',l:'Article',title:'Extra Credits — Game Design',desc:'The essentials, explained simply',url:'https://www.youtube.com/c/ExtraCreditz'},{t:'tool',l:'Tool',title:'Itch.io — Browse indie games',desc:'Play and study indie games for free',url:'https://itch.io/'},{t:'template',l:'Canva',title:'Game Concept Board',desc:'Fill in your genre, world and pitch',url:'https://www.canva.com/create/game-design/'}]},
   {num:'02',title:'Build Your Characters',sub:'Hero · Villain · Supporting Cast',badge:'Create',bc:'bcreate',
    blurb:'Characters are the soul of a game. Players don\'t remember the code — they remember <b>who they played as</b>. Think of Link from Zelda, Kratos from God of War, Pikachu. They\'re iconic because every detail was deliberate. Today you create yours.',
@@ -767,6 +796,7 @@ const DAYS=[
    quest:{t:'For each character, fill in this card in your notebook:',items:['Name: ___','Role: Hero / Villain / Sidekick / NPC','Looks like: ___','Powers / Skills: ___','Wants: ___','Afraid of / weakness: ___','3 personality words: ___, ___, ___']},
    ai:{t:'Try asking Claude:',p:'I\'m designing a villain for a [your genre] game set in [your world]. Their backstory is: [your notes]. Help me make them more interesting and give them a memorable visual description. Make them scary but understandable.'},
    stretch:['Sketch your hero in your notebook — rough shapes are fine. What does their outfit tell us about who they are?','Write a short conversation between your hero and villain'],
+   canva:{url:'https://www.canva.com/design/DAHEeePHSL0/Cw_8qv49PYsY0KwVSP3M4w/view?utm_content=DAHEeePHSL0&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview',desc:'6 slides: Hero character card, Hero mood board (4 image boxes + 3 colour circles), Villain character card, Villain mood board, and a supporting cast layout. Fill in the fields and drop in images as you design.'},
    resources:[{t:'video',l:'Video',title:'How to design iconic game characters',desc:'Noclip documentary channel',url:'https://www.youtube.com/c/NoclipGames'},{t:'article',l:'Article',title:'Character Design in Games',desc:'What makes players care — Extra Credits',url:'https://www.youtube.com/c/ExtraCreditz'},{t:'template',l:'Canva',title:'Character Mood Board',desc:'Visual board for your characters',url:'https://www.canva.com/create/mood-board/'},{t:'tool',l:'Tool',title:'HeroForge — 3D character builder',desc:'Build a 3D version of your character',url:'https://www.heroforge.com/'},{t:'template',l:'Canva',title:'Character Profile Card',desc:'Bio card layout for each character',url:'https://www.canva.com/create/infographic/'}]},
   {num:'03',title:'Write Their Stories',sub:'Bios · Dialogue · World Bible',badge:'Create',bc:'bcreate',
    blurb:'The best game writers write <b>10× more story than players ever see</b>. Most stays hidden — but it makes everything feel real. When a character knows their own history, they act more consistently. More believably. Today you write the deep lore.',
@@ -777,6 +807,7 @@ const DAYS=[
    quest:{t:'Villain speech rules:',items:['They must NOT be evil just for the sake of it','They must believe they are helping or fixing something','At least one line must make the player think "...they kind of have a point though"']},
    ai:{t:'Use Claude as a writing partner here:',p:'Here\'s my villain\'s backstory: [paste your notes]. Write a 5-sentence speech where they confront the hero. They believe they\'re the good guy. Make one line feel genuinely unsettling because it might be true.'},
    stretch:['Add a "lore entry" — a fake in-game book, journal, or news article from inside your world','Give your world a name and write a one-sentence history of how it began'],
+   canva:{url:'https://www.canva.com/design/DAHEeYW1b_I/pOYeQmq_1AwBtma0i9NXlw/view?utm_content=DAHEeYW1b_I&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview',desc:'5 slides: Hero and Villain bio writing areas, a dramatic villain speech template with checklist, a relationship map diagram with character nodes, and a World Bible writing page with fill-in prompts.'},
    resources:[{t:'article',l:'Article',title:'How to write a great villain',desc:'Character motivation deep-dive',url:'https://www.masterclass.com/articles/how-to-write-a-villain'},{t:'video',l:'Video',title:'What makes a great game story?',desc:'Game Maker\'s Toolkit',url:'https://www.youtube.com/c/MarkBrownGMT'},{t:'template',l:'Canva',title:'World Building Map',desc:'Visual layout for your world\'s lore',url:'https://www.canva.com/create/map/'},{t:'article',l:'Article',title:'Brandon Sanderson\'s free writing lectures',desc:'World-building from a master storyteller',url:'https://www.youtube.com/c/BrandonSanderson'}]},
   {num:'04',title:'Design Your First 3 Levels',sub:'Mood Boards · Difficulty Curve · Maps',badge:'Design',bc:'bdesign',
    blurb:'Levels are not just obstacle courses — they\'re <b>storytelling devices</b>. Level 1 teaches you who you are. Level 2 challenges you. Level 3 changes you. Every great game uses levels to move the player emotionally, not just physically.',
@@ -787,6 +818,7 @@ const DAYS=[
    quest:{t:'The Difficulty Curve Challenge — draw a line graph:',items:['X axis = time through the game (Levels 1 → 3)','Y axis = difficulty / tension','Mark where the player feels powerful','Mark where they feel scared','Mark where they might feel confused']},
    ai:{t:'Ask Claude to stress-test your level design:',p:'Here\'s my Level 1 brief: [paste your brief]. I want players to feel safe but curious. Is there anything that might confuse a first-time player? What\'s missing? What would make it more fun?'},
    stretch:['Write "level flavour text" — a sign found inside the level that hints at the story','Plan a secret room or Easter egg in Level 1 — what does the player find?'],
+   canva:{url:'https://www.canva.com/design/DAHEecVzRrY/mre3ciqxf8h7uqnLq_4OpQ/view?utm_content=DAHEecVzRrY&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview',desc:'6 slides: Three level mood boards (each with 4 image drop zones and fill-in fields for name, setting, feeling), a graph-paper level map slide for sketching Level 1, and a difficulty curve graph to draw your tension arc.'},
    resources:[{t:'video',l:'Video',title:'How games use level design to tell stories',desc:'GMTK — essential watching',url:'https://www.youtube.com/watch?v=NoAzpa1x7jU'},{t:'template',l:'Canva',title:'Level Mood Board Template',desc:'Visual board for each of your levels',url:'https://www.canva.com/create/mood-board/'},{t:'tool',l:'Tool',title:'Excalidraw — free sketching tool',desc:'Draw your level maps digitally',url:'https://excalidraw.com/'},{t:'article',l:'Article',title:'Level design in detail — GDC Vault',desc:'Professional techniques explained',url:'https://gdcvault.com/'}]},
   {num:'05',title:'Game Mechanics & Rules',sub:'How to Play · Win/Lose · Systems',badge:'Build',bc:'bbuild',
    blurb:'Mechanics are the actual <b>rules of your game</b>. What can the player do? What happens when they do it? Every mechanic is basically: <b>if [player does X], then [Y happens].</b> That\'s programming, right there.',
@@ -797,6 +829,7 @@ const DAYS=[
    quest:{t:'Write your enemy\'s AI as IF/THEN rules. Example:',items:['IF enemy doesn\'t see player → patrol back and forth','IF enemy sees player within 5 tiles → chase player','IF enemy catches player → player loses 1 life','IF enemy health = 0 → enemy dies, drop item']},
    ai:{t:'Cursor is built for exactly this:',p:'I want to code a basic enemy AI in Python that patrols until it sees the player, then chases. I\'m a beginner. Can you explain what the logic would look like BEFORE writing any code, so I understand what it\'s doing?'},
    stretch:['Design a power-up — what does it do and how does it change gameplay?','Draw a flowchart of what happens from start to end of your game'],
+   canva:{url:'https://www.canva.com/design/DAHEeX5Re5w/ka7vA4a-Lc-euK5Go0_cBA/view?utm_content=DAHEeX5Re5w&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview',desc:'5 slides: Core mechanics builder (when/then format), win and lose condition boxes, an enemy AI IF/THEN card builder with 4 rule slots, and a unique mechanic discovery slide.'},
    resources:[{t:'video',l:'Video',title:'What is a game mechanic?',desc:'Extra Credits — clear and short',url:'https://www.youtube.com/c/ExtraCreditz'},{t:'article',l:'Article',title:'Game Balance basics',desc:'How to make fair, fun challenges',url:'https://www.gamedeveloper.com/'},{t:'template',l:'Canva',title:'Game Rules Document',desc:'Layout for your mechanics doc',url:'https://www.canva.com/create/documents/'},{t:'tool',l:'Tool',title:'BoardGameGeek',desc:'Study how other games handle mechanics',url:'https://boardgamegeek.com/'}]},
   {num:'06',title:'Sound & Music Design',sub:'Audio Identity · Emotion Through Sound',badge:'Design',bc:'bdesign',
    blurb:'Turn off the sound on any game you love. It\'s a completely different experience. <b>Sound carries 50% of the emotional weight in games.</b> The ping when you collect something. The music before a boss fight. The silence that makes horror terrifying.',
@@ -807,6 +840,7 @@ const DAYS=[
    quest:{t:'The Sound Game:',items:['Close your eyes','Play 30 seconds of one of your level tracks','Without opening your eyes, write 5 words or images that come to mind','These words are now part of your level\'s design brief']},
    ai:null,
    stretch:['Find a royalty-free sound on freesound.org for your hero\'s footsteps','Write the lyrics to your game\'s main title theme — even just two lines'],
+   canva:{url:'https://www.canva.com/design/DAHEedRuc1Q/EbHSw8HDbtzH7fbWrCVdRg/view?utm_content=DAHEedRuc1Q&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview',desc:'5 slides: A Sound Bible table (sound, trigger, emotion), three level playlist cards, a boss fight audio moment designer, and the Sound Game exercise — 5 word boxes to fill in with eyes closed.'},
    resources:[{t:'tool',l:'Tool',title:'Freesound.org',desc:'Free sound effects, royalty-free',url:'https://freesound.org/'},{t:'tool',l:'Tool',title:'BeepBox',desc:'Make 8-bit music in your browser for free',url:'https://www.beepbox.co/'},{t:'video',l:'Video',title:'How video game music works',desc:'Adam Neely — brilliant and accessible',url:'https://www.youtube.com/c/AdamNeely'},{t:'tool',l:'Tool',title:'Chrome Music Lab',desc:'Visual, playable music creation',url:'https://musiclab.chromeexperiments.com/'}]},
   {num:'07',title:'First Code Sprint',sub:'Cursor · Python · Your First Moving Thing',badge:'Code',bc:'bcode',
    blurb:'You\'ve designed a world, characters, levels, mechanics, and sounds. Now something <b>actually happens on screen</b>. Today\'s goal isn\'t to build your game — it\'s to build one tiny, working piece of it. A rectangle that moves. Real, working code.',
@@ -817,6 +851,7 @@ const DAYS=[
    quest:{t:'The "I Made This" moment:',items:['When your rectangle moves, screenshot it','Upload it below','Title it: Day 7 — First Code','This is the first pixel of your game. Every game ever made started here.']},
    ai:{t:'This is exactly what Cursor + Claude is built for. Try:',p:'I\'m 13 and learning to code. I want to build a simple game in Python using Pygame. Start by showing me how to create a window and draw a rectangle that moves with arrow keys. Explain EVERY line as you write it — I want to understand what\'s happening, not just copy it.'},
    stretch:['Change the rectangle\'s colour using variables — can you make it change colour when it moves?','Add a title bar to your Pygame window with your game\'s name'],
+   canva:{url:'https://www.canva.com/design/DAHEef5sT2E/h54LNIS4b2BFVf2IsjAymA/view?utm_content=DAHEef5sT2E&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview',desc:'5 slides: A setup checklist, an annotated code explainer diagram, a 4-stage build milestone tracker with tick boxes, and a "I Made This" screenshot paste slide with reflection fields.'},
    resources:[{t:'article',l:'Docs',title:'Python for Beginners',desc:'Official Python tutorial — start here',url:'https://docs.python.org/3/tutorial/'},{t:'video',l:'Video',title:'Pygame in 90 minutes — Tech With Tim',desc:'Clear, step-by-step beginner tutorial',url:'https://www.youtube.com/c/TechWithTim'},{t:'tool',l:'Tool',title:'Replit — code in your browser',desc:'No install needed, run Python online',url:'https://replit.com/'},{t:'video',l:'Video',title:'How does game development work?',desc:'Fireship — 5-minute explainer',url:'https://www.youtube.com/@Fireship'},{t:'tool',l:'Tool',title:'Pygame documentation',desc:'The official Pygame reference',url:'https://www.pygame.org/docs/'}]},
   {num:'08',title:'Your Game Comes Alive',sub:'Sprites · AI Art · The Loop',badge:'Build',bc:'bbuild',
    blurb:'Your rectangle is about to become your character. Today you replace the placeholder with a real image, add gravity or health, and start to see your <b>design decisions become playable reality</b>. This is the day it stops feeling like an exercise.',
@@ -827,6 +862,7 @@ const DAYS=[
    quest:{t:'Playtest Debrief — write in your notebook:',items:['What did they do that you didn\'t expect?','What confused them?','What made them smile or laugh?','What\'s the ONE thing you\'d fix first?']},
    ai:{t:'A powerful Cursor prompt for this stage:',p:'Here\'s my game code so far: [paste it]. I want to add simple gravity so the player falls and can jump with spacebar. Walk me through it step by step and explain why each part is necessary.'},
    stretch:['Add background music using Pygame\'s mixer — use one of your Day 6 tracks as an .mp3','Add a simple score display in the corner','Build a title screen that shows before the game starts'],
+   canva:{url:'https://www.canva.com/design/DAHEeQZfLe0/9mCYnXUGvymd72y9OMq0Dw/view?utm_content=DAHEeQZfLe0&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview',desc:'5 slides: Sprite generation prompt builder with image paste box, a Before/After rectangle-vs-sprite comparison, a new mechanic planner, and the Playtest Debrief — 4 observation cards to fill in after watching someone play.'},
    resources:[{t:'tool',l:'Tool',title:'Adobe Firefly — AI image generation',desc:'Free AI art for your character sprites',url:'https://firefly.adobe.com/'},{t:'tool',l:'Tool',title:'Canva AI image generator',desc:'Generate sprites and backgrounds',url:'https://www.canva.com/ai-image-generator/'},{t:'tool',l:'Tool',title:'Piskel — free pixel art editor',desc:'Make your own pixel art sprites',url:'https://www.piskelapp.com/'},{t:'video',l:'Video',title:'Adding sprites to Pygame — Clear Code',desc:'Best Pygame tutorial channel',url:'https://www.youtube.com/c/ClearCode'},{t:'article',l:'Article',title:'What is game feel? — GMTK',desc:'Why some games feel amazing to control',url:'https://www.youtube.com/watch?v=AJdEqssNZ-U'}]}
 ];
 
