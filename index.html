@@ -516,13 +516,21 @@ async function tryAutoLogin(){
       localStorage.removeItem('gm_pid');
     }catch{}
   }
-  // Check for returning parent session
+  // Check for returning parent session — always re-validate through the join table
+  // so DB-side re-links are picked up immediately (never trust stale localStorage child ID)
   const parid=localStorage.getItem('gm_par_id');
-  const parcid=localStorage.getItem('gm_par_child');
-  if(parid&&parcid){
+  if(parid){
     try{
-      const{data:childPlayer}=await db.from('gm_player').select('*').eq('id',parcid).maybeSingle();
-      if(childPlayer){await renderParentView(childPlayer);return 'parent';}
+      const{data:link}=await db.from('gm_parent_player')
+        .select('player_id, gm_player(*)')
+        .eq('parent_id',parid)
+        .maybeSingle();
+      if(link&&link.gm_player){
+        // Update local cache with the current (possibly re-linked) child
+        localStorage.setItem('gm_par_child',link.player_id);
+        await renderParentView(link.gm_player);
+        return 'parent';
+      }
     }catch{}
   }
   return null;
